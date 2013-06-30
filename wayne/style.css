@@ -1,0 +1,272 @@
+
+#wayne_settings_bd{
+	font-family: 'Lucida Grande', sans-serif;
+	font-size: 14px;
+	letter-spacing: -0.6pt;
+	background-color:#EEE;
+}
+
+#wayne_settings_bd div.wghost{
+	-webkit-transform: rotate(90deg);
+	top:420px;
+	left:175px;
+	z-index:-1;
+	position:absolute;
+	font-size:200px;
+	color:#ccc;
+}
+
+#wayne_settings_bd div.wghost b{
+	font-size:55px;
+	color:#aaa;
+}
+
+#sethead{
+	font-size:50px;
+	font-weight:700;
+	margin:20px;
+}
+
+#wayne_setting_c{
+	width:500px;
+	z-index:5;
+	-webkit-border-radius: 10px 10px 10px 10px;
+	border:1px solid #444;
+	-webkit-box-shadow: 0px 5px 5px rgba(50, 50, 50, 0.2);
+	background-color: rgba(216,216,216,.5);
+	text-align:left;
+	padding:15px;
+}
+
+#wayne_setting_c label{
+	float:left;
+	font-size:22px;
+	font-weight:400;
+	position:relative;
+}
+
+#wayne_setting_c div.widmh{
+	background-color:#CCC;
+	padding:5px;
+	overflow:hidden;
+}
+
+#wayne_setting_c hr{
+	margin:20px 0px;
+}
+
+#wayne_setting_c select{
+	-webkit-appearance: none;
+}
+
+#wayne_setting_c select,#wayne_setting_c input{
+	float:right;
+	font-size:18px;
+	padding:0px 5px;
+	font-weight:500;
+}
+
+#wayne_setting_c small{
+	
+}
+
+#wayne_setting_c #used{
+	width:100%;
+	color:#666;
+	background-color:#0f0;
+}
+
+#wayne_setting_c table tr{
+
+}
+
+#wayne_setting_c table tr.title{
+	font-weight:bold;
+	border-bottom:1px solid #888;
+	background-color:#BBB;
+	border-right:1px solid #000;
+}
+#wayne_setting_c table tr.alt{
+	background-color:#FFF;
+}
+
+#wayne_setting_c table{
+	border-spacing:0px;
+	margin:10px;
+	text-align:center;
+	font-size:14px;
+	border: 1px solid #888;
+	width:100%;
+}
+
+#wayne_setting_c a{
+	margin:0px 3px;
+	color:#00f;
+}
+
+#wayne_setting_c button{
+	width:100%;
+	text-align:center;
+}
+
+#wayne_setting_c #save{
+	font-size:20px;
+	font-weight:700;
+}
+
+#wayne_setting_c #wscl{
+	margin-top:20px;
+	width:100%;
+	text-align:center;
+	font-size:19px;
+	border-bottom:1px solid #888;
+	background-color:#BBB;
+	padding:4px;
+}
+
+/* INJECTION CSS */
+
+#wayne_daddy{
+	position:fixed;
+	z-index:1000;
+	width:35%;
+	height:21px;
+	display:none;
+	margin-left:15px;
+
+
+}
+
+#wayne_sel_pop{
+	display:none;
+	z-index:800 !important ;
+	float:left;
+	position:absolute;
+	bottom:20px;
+	width:400px;
+	overflow:hidden;
+	border:1px solid #333;
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(200,200,200,1)), color-stop(30%,rgba(213,213,213,1)), color-stop(100%,rgba(200,200,200,1)));
+}
+
+.wayne_lockon{
+	background-color:rgba(233,45,45,.5)!important;;
+}
+
+.wayne_lockon_assoc{
+	border: 2px solid rgb(200,90,90) !important;
+	background-color:rgba(200,90,90,.3);
+}
+
+#wayne_s_c{
+
+}
+
+#wayne_s_t{
+
+}
+
+#wayne_msg_container{
+	padding-left:10px;
+	color:#000;
+	border:1px solid #7a7a7a;
+
+	font-family: helvetica, sans-serif;
+	font-size: 14px;
+	letter-spacing: -0.6pt;
+
+	background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(216,216,216,1)), color-stop(30%,rgba(215,215,215,1)), color-stop(100%,rgba(216,216,216,1)));
+
+	z-index:1000;
+	font-weight:200;
+}
+
+.wayne_error{
+	color:#F00;
+	font-weight:600;
+}
+
+.wayne_notify{
+	color:#006e00;
+}
+
+.wayne_event{
+}
+
+.w_top{
+	top:0px;
+	-webkit-border-radius: 0px 0px 10px 5px;
+	-webkit-box-shadow: 0px 3px 5px rgba(50, 50, 50, 0.2);
+}
+.w_right{
+	right:0px;
+}
+.w_bottom{
+	bottom:0px;
+	-webkit-border-radius: 10px 5px 0px 0px;
+	-webkit-box-shadow: 0px -3px 5px rgba(50, 50, 50, 0.2);
+}
+.w_left{
+	left:0px;
+}
+
+.wayne_hover{
+	border:2px solid #0f0;
+	background-color:#00DD00;
+}
+
+.wayne_name{
+	color:#222;
+	font-weight:bold;
+}
+
+#wayne_select{
+	display:none;
+	background-color:#aa3333;
+}
+
+.wayne_btn{
+	font-size:22px;
+	border:1px solid #222;
+	background-color:#cdcdcd;
+	margin-left:3px;
+	width:20px;
+	height:20px;
+	-webkit-border-radius: 5px;
+	border-radius: 5px;
+padding-left:2px;
+	float:right;
+}
+.wayne_btns{
+	padding:0px;
+	height:21px;
+	margin-left:5px;
+	border-left:1px solid #333;
+	display:inline-block;
+	float:right;
+}
+
+div.wayne_rt{
+	float:left;
+}
+
+.wayne_btn:hover{
+	background-color:#717171 !important;
+	color:#DDD;
+}
+
+#wayne_count{
+	color:#6464aa;
+}
+
+#wayne_msg{
+	font-weight:300;
+	height:21px;
+	overflow:hidden;
+	width:65%;
+	display:inline-block;
+}
+
+.wayne_selected{
+	background-color:rgba(45,255,45,.3) !important;
+}
