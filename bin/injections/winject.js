@@ -1,6 +1,14 @@
 var WayneSocket = {
     sendEvent: function(evt){
         chrome.extension.sendMessage(evt);
+    },
+    opts: {
+        "seek_attrs":[
+            "class","id","value"
+        ],
+        "itest_attrs":[
+            "label":{}
+        ]
     }
 }
 //Needs a wrapper for the DOM objects!
@@ -10,15 +18,40 @@ function WinDomWrapper (obj) {
     this.active_parent = undefined;
     this.active_child = undefined;
     this.in_factor = false; // Is this a previewed child? Or the real deal.
-
+    this.attr_tracker = {};
     //Like for class, or id, or value... maybe label.. just store attr and the values as a structure.
     this.instantiateAttr = function(attr, value){
+       this.attr_tracker[attr]=[];
 
+       if(value != undefined){ // we supply it.
+          this.attr_tracker[attr].push([false,value]);
+          return;
+       }
+       if attr=="class" {
+            var values = $(this.base).attr(attr).split(" ");
+            for(i=0;i<values.length;i++){
+                //is used, value
+                this.attr_tracker[attr].push([false, values[i]])
+            }
+       }else{
+            this.attr_tracker[attr].push([false,$(this.base).attr(attr)])
+       }
     };
     //Add the base and re-render around that
     this.instantiateBase = function(base_obj){
         this.base = base_obj;
+        //sweep it for attrs that we can use.
+        var tmp_attrs = WayneSocket.opts["seek_attrs"];
+        var tmp_jq_base = $(base_obj);
+        for(i=0;i<tmp_attrs.length; i++){
+            if(tmp_jq_base.attr(tmp_attrs[i])!= undefined){
+                this.instantiateAttr(tmp_attrs[i]);
+            }
+        }
 
+        //literal things
+
+        this.instantiateAttr("_label",tmp_jq_base.html());
         //render a container around this.
     };
     //Add and activate the parent
@@ -48,6 +81,7 @@ var Winston = {
     page_listeners_loaded: false,
     base_loaded: false,
     sel_evts_loaded: false,
+    sel_mode: 0, //0-not doing shit, 1-clicking, 2-counting
 
 
     initialize: function(){
