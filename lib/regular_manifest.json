@@ -1,0 +1,31 @@
+{
+  "manifest_version": 2,
+  "name": "Integrated Wayne",
+  "description": "This is wayne, one badass raccoon. Now with Winston.",
+  "version": "0.991241",
+  "options_page": "wayne_cfg.html",
+
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:*/*","http://0.0.0.0:*/*","http://127.0.0.1:*/*","http://*.dev/*"],
+      "css": ["style.css"],
+      "js": ["jquery.js","injections/wayneject.js","injections/winject.js"]
+    }
+  ],
+
+  "permissions": [
+    "contextMenus",
+    "tabs",
+    "http://*/*",
+    "https://*/*"
+  ],
+
+  "icons": {"128": "icon128.png" },
+
+  "browser_action": {
+    "default_icon": "favicon.ico"
+  },
+  "background": { "page": "wayne.html" },
+  "icons": {"128": "icon128.png" }
+}
+

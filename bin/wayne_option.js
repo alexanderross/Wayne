@@ -1,4 +1,13 @@
 var SETTINGS = {
+	"wayne_engine":{
+		render_as: "sel",
+		label: "UI Engine",
+		description: "Which Element Resolution engine to use. Read about these in the readme",
+		options:[
+			["SQUIRREL", "Winston"],
+			["RACCOON", "Wayne"]
+		]
+	},
 	"wayne_selector":{
 		render_as: "sel",
 		label: "Selector Type",
@@ -6,8 +15,7 @@ var SETTINGS = {
 		options: [
 			["xpath", "XPATH"],
 			["css", "CSS"]
-		],
-		default:"0-1-1-0"
+		]
 	},
 	"wayne_position":{
 		render_as: "sel",
@@ -18,7 +26,8 @@ var SETTINGS = {
 			["1-0-0-1","Top Left"],
 			["0-1-1-0","Bottom Right"],
 			["1-0-1-1","Bottom Left"]
-		]
+		],
+		default:"0-1-1-0"
 	},
 
 	"wayne_index_behaviour":{
@@ -86,12 +95,10 @@ document.addEventListener('DOMContentLoaded',function(){
 	restore_options();
 
 
-	VERSION_NUMBER="0.98";
 
 
 
-
-	$(".vnm").html("ver "+VERSION_NUMBER);
+	$(".vnm").html("ver "+localStorage["wayne_version_number"]);
 
 /*
 	swidth=$("#used").width();
@@ -152,6 +159,7 @@ document.addEventListener('DOMContentLoaded',function(){
 	  // Update status to let user know options were saved.
 	  var status = document.getElementById("status");
 	  status.innerHTML = "Options Saved.";
+	  chrome.extension.sendMessage({action: "Options", target: "reload"});
 	  setTimeout(function() {
 	    window.location.reload();
 	  }, 750);

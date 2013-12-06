@@ -1,0 +1,104 @@
+#winston_box{
+	height:80px;
+	width: 500px;
+	position:fixed;
+	bottom:0px;
+	right:0px;
+	font-size: 13px;
+}
+
+#winston_primary_disp{
+	background-color: #cca;
+	-webkit-border-radius: 6px;
+	-moz-border-radius: 6px;
+	border-radius: 6px;
+}
+
+#winston_interface{
+	float:right;
+
+	display:inline-block;
+	margin-right:10px;
+}
+
+#winston_interface div{
+	display:inline-block;
+	font-size:20px;
+	margin:0px 5px;
+	border:1px solid #FFF;
+}
+
+#winston_messages{
+	position:relative;
+	left:0px;
+	width: 60%;
+	display: inline-block;
+	overflow:hidden;
+}
+.winston_count_container{
+	font-weight:bold;
+}
+
+.winston_dispitem{
+	
+}
+
+.winston_expander_criteria{
+	border: 1px solid #BBB;
+	padding:3px;
+	-webkit-border-radius: 4px;
+	-moz-border-radius: 4px;
+	border-radius: 4px;
+}
+
+.winston_criteria_sel{
+	display: inline-block;
+}
+
+span.winston_attr_delim{
+	
+}
+
+.winston_expander_toggle_parent{
+	position:absolute;
+	right:0px;
+	top: 0px;
+	background-color: #A0410D;
+	font-weight:bold;
+	font-size:24px;
+	color: #EEE;
+	padding: 2px;
+}
+
+.winston_attr_disp{
+	display:inline-block;
+	-webkit-border-radius: 6px;
+	-moz-border-radius: 6px;
+	border-radius: 6px;
+	border: 1px solid #555;
+	background-color: #ccc;
+	font-weight: bold;
+	text-align:center;
+	padding: 0px 5px;
+	color:#222;
+	margin: 0px -4px;
+}
+
+.winston_tag_disp{
+	background-color: #6ECFF6;
+}
+
+.winston_color_type_class{
+	background-color: #FDC68A;
+}
+
+.winston_color_type_index{
+	background-color: #A2D39C;
+}
+
+.winston_itest_engine_atr{
+	font-size:18px;
+	margin:8px;
+}
+
+

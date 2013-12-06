@@ -6,9 +6,14 @@ var undidactions= new Array();
 
 
 var outputVerbage="CAPY";
+localStorage["wayne_version_number"]="0.989";
 loadDefaults();
 
 function loadDefaults(){
+
+	if (!localStorage["wayne_engine"]){
+		localStorage["wayne_engine"]="RACCOON";
+	}
 
 	if (!localStorage["wayne_position"]){
 		localStorage["wayne_position"]="0-1-1-0";
@@ -31,7 +36,7 @@ function loadDefaults(){
 	}
 
 	if(!localStorage["wayne_index_behaviour"]){
-		localStorage["wayne_index_behaviour"]="1";
+		localStorage["wayne_index_behaviour"]="0";
 	}
 
 	if(!localStorage["wayne_wait"]){
@@ -47,16 +52,15 @@ function loadDefaults(){
 	};
 
 }
-
+if(!localStorage["wayne_saved"]){
+	localStorage["wayne_saved"]="[]";
+}
 function getStorageUsed(){
 	return ((localStorage["wayne_saved"].length / 2500000)*100).toFixed(2);
 }
 
 function addToSavedCaps(){
 	today = new Date();
-	if(!localStorage["wayne_saved"]){
-		localStorage["wayne_saved"]="[]";
-	}
 	storedData=JSON.parse(localStorage["wayne_saved"]);
 	storedData.push({"date":(today.getFullYear()+ "/" + today.getMonth() + 1 + "/" + today.getDate()),"time":(today.getHours()+":"+today.getMinutes()),"data":actions});
 	localStorage["wayne_saved"]=JSON.stringify(storedData);
@@ -80,7 +84,11 @@ function start(){
 function stop(){
 	wayneStarted=false;
 	copyToClipboard();
-	alert(actions.length+" Test items copied to clipboard."+((localStorage["wayne_do_saved"]=="y")?"Save storage "+getStorageUsed()+"% full.":""));
+	if(actions.length){
+		//alert("Terminated an empty capture.. good job..");
+	}else{
+		alert(actions.length+" Test items copied to clipboard."+((localStorage["wayne_do_saved"]=="y")?"Save storage "+getStorageUsed()+"% full.":""));
+	}
 	chrome.contextMenus.remove("wayne--elct");
 	chrome.contextMenus.remove("wayne--selex");
 }
@@ -151,6 +159,9 @@ chrome.extension.onMessage.addListener(function(msg,sender, sendResponse) {
 			stop();
 		}
 	}else if(wayneStarted){
+		if(msg.action == "Options"){//Should reload active client
+			updateNode();
+		}
 		processed=translateEvent(msg);
 	  	if(!isRepeat(processed) && processed!=""){
 	  		lastRecieved=processed;
@@ -217,44 +228,69 @@ function translateSelector(cssSelector){
 	}
 }
 
+// TODO direct descendants - " li a.linkclass" should convert to li/a[@class="linkclass"]
 function convertCSSToXPath(cssSelector){
-	xpathoutput=""
-	cssSelector= " "+cssSelector;
-	data=cssSelector.split(/([.:#\[ ])/);
+	var xpathoutput=""
+	var cssSelector= " "+cssSelector;
+	var data=cssSelector.split(/([.:#\[ ])/);
+	var current_chunk = "";
+	var select_index = -1;
 	for(i=0;i<data.length; i++){
 		if(data[i]==" "){
 			i++;
-			xpathoutput+=data[i];
+			if(xpathoutput != ""){
+				xpathoutput += "/"
+			}
+			if(current_chunk != ""){
+				xpathoutput += current_chunk
+				current_chunk = "";
+			}
+			current_chunk += data[i];
 		}
 		if(data[i]=="."){
 			if(data[i+1].indexOf(" ") !== -1){
-				xpathoutput+="[contains(@class,\""+data[i+1]+"\")]";
+				current_chunk += "[contains(@class,\""+data[i+1]+"\")]";
 			}else{
-				xpathoutput+="[@class=\""+data[i+1];
+				current_chunk +="[@class=\""+data[i+1];
 				while(i+2<data.length && data[i+2]=="."){
 					i+=2
-					xpathoutput+=" "+data[i+1];
+					current_chunk +=" "+data[i+1];
 				}
-				xpathoutput+="\"]";
+				current_chunk +="\"]";
 				i++;
 			}
 		}
 		if(data[i]=="#"){
 			i++;
-			xpathoutput+="[@id = \""+data[i]+"\"]";
+			current_chunk +="[@id = \""+data[i]+"\"]";
 		}
 		if(data[i]==":"){
 			i++;
 			data[i]=data[i].replace("eq(","");
-			xpathoutput+="["+(parseInt(data[i].replace(")",""))+1)+"]";
+			if(i == data.length-1){
+				select_index = (parseInt(data[i].replace(")",""))+1);
+			}else{
+				current_chunk +="["+(parseInt(data[i].replace(")",""))+1)+"]";
+			}
 		}
 		if(data[i]=="["){
 			i++;
 			data[i]=data[i].replace("]","");
-			xpathoutput+="[@"+data[i]+"]";
+			current_chunk +="[@"+data[i]+"]";
 		}
 	}
-	return "//"+xpathoutput;
+	if(select_index != -1){
+		xpathoutput = "(//"+xpathoutput+")["+select_index+"]";
+	}else{
+		if(xpathoutput != ""){
+			xpathoutput += "/"
+		}
+		if(current_chunk != ""){
+			xpathoutput += current_chunk;
+		}
+		xpathoutput = "//"+xpathoutput;
+	}
+	return xpathoutput;
 }
 
 function cleanAcions(){

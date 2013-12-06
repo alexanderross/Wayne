@@ -1,5 +1,6 @@
 
 var selecting=false;
+var selecting_level = 0;
 var running=false;
 var paused=false;
 var wayneLoaded=false;
@@ -13,7 +14,9 @@ var deniedSymbols=[];
 var mode="XPATH";
 var last_ts="";
 
+
 //TODO - RESOLVE BY SCOPE
+//This should be wrapped in an object. But lazy.
 
 /* 
 IVMB:RAILMAG
@@ -33,6 +36,7 @@ function processSelect(object,screen){
 	$(".wayne_lockon_assoc").removeClass("wayne_lockon_assoc");
 	$(".wayne_lockon").removeClass("wayne_lockon");
 	$(".wayne_hover").removeClass("wayne_hover");
+
 	if(object.id){
 		target_tg = object.tagName.toLowerCase()+"#"+object.id;
 		if(!resolves_singular(target_tg)){
@@ -103,9 +107,30 @@ function translateQualityError(qualityReturn){
 	return ("Denied: it "+((qualityReturn[2])? "contained "+qualityReturn[1] : "did not contain "+qualityReturn[1]));
 }
 
-function resolve_clicked_object(object){
+//HEIRARCHY
+//max depth - max amount of parents to process, -1 is UNLIMITED!
+//current_build - the current tag generated.
+//current_depth - seriously?
+function resolve_heirarchally(object, max_depth, current_build, current_depth){
+	//Does the current build resolve specifically? If so, return that bad boy.
+	// Set the 'return best try' flag, for we want a little something more specific than the tag name to go from.
+	var current_result = resolve_clicked_object(object, true);
+	current_build = current_result[1] + " " +current_build ;
+	if(current_result[0] != null && resolves_singular(current_build) ){
+		return [1,current_build]
+	}else if(current_depth <= max_depth || max_depth == -1){
+		return resolve_heirarchally(object.parentNode, max_depth, current_build, current_depth+1);
+	}else{
+		return [null,current_build];
+	}
+}
+
+//END HIERARCHY 
+
+function resolve_clicked_object(object, return_best_try){
 	var buildup=object.tagName.toLowerCase();
 	failure=""
+	//Try an ID first
 	if(object.id){
 		buildup+="#"+object.id
 		check=satisfies_selector_quality(buildup);
@@ -117,7 +142,8 @@ function resolve_clicked_object(object){
 			}
 		}
 	}
-	if($(object)[0].className!=""){
+	//Then try a class
+	if($(object)[0].className!=""){ // this looks bad, I know. But it's all SVG's fault, really.
 		resolved_class=resolve_best_class($(object)[0].className,object);
 		if(resolved_class != ""){
 			buildup+=resolved_class
@@ -131,8 +157,13 @@ function resolve_clicked_object(object){
 			}
 		}
 	}
+
+	//Lets try to use another attribute
 	last_chance=resolve_to_any_attr(object,true);
-	check=satisfies_selector_quality(last_chance[1]);
+
+	//Last chance, bitches. 
+	check = satisfies_selector_quality(last_chance[1]);
+	//Does it blend??
 	if(last_chance[0]!=null){
 		if(check[0]){
 			return [1,last_chance[1]];
@@ -140,8 +171,11 @@ function resolve_clicked_object(object){
 			failure=translateQualityError(check);
 		}
 	}
-	
-	return [null,failure];
+	if(return_best_try != undefined){
+		return [null,last_chance[1]];
+	}else{
+		return [null,failure];
+	}
 }
 
 function get_base_selector(object){
@@ -210,7 +244,9 @@ function resolve_best_class(class_in,object){
 
 function get_as_index(object,base){
 	selector=get_base_selector(object);
-
+	if(base.length > selector.length){
+		selector = base;
+	}
 	num=$(selector).index($(object));
 	if(num<0){
 		return(selector);
@@ -337,8 +373,17 @@ function loadListeners(loadWayne){
 					case 40:
 						traverseSelected(selected_object,-2);
 						break;
-					case 13:
+					case 13: //Enter
 						processSelect(selected_object,false);
+						break;
+					case 27: //Esc
+						disableSelectMode();
+						break;
+					case 61: //+=
+						break;
+					case 189: //minus
+						break;
+					case 187: // plus
 						break;
 					default:
 						break;
@@ -413,14 +458,8 @@ function loadListeners(loadWayne){
 				traverseSelected(object,0);
 				last_ts=event.timeStamp;
 				return false;
-			}else if(event.timeStamp!=last_ts){
+			}else if(event.timeStamp!=last_ts){ // No double taps allowed.
 				if(object.tagName.toLowerCase()!="input"){
-					if(object.tagName=="A" && allowLabelClick){
-						if(link_text_is_unique(object.innerHTML)){
-							sendEvent({action: "HTMLClick", target: object.innerHTML});
-							return true;
-						}
-					}
 					if(object.tagName=="IMG" || object.tagName=="I"){
 						if(object.parentNode.tagName=="A" || object.parentNode.tagName=="BUTTON"){
 							object=object.parentNode;
@@ -473,9 +512,10 @@ function traverseSelected(object,direction){
 }
 
 function fullProcessClickedObject(object){
-	result=resolve_clicked_object(object);
-	output="";
-	error="";
+	//result=resolve_clicked_object(object);
+	var result=resolve_heirarchally(object,5,"",0);
+	var output="";
+	var error="";
 	if(result[0]!=null){
 		output=result[1];
 	}else if(allowIndex){
@@ -485,7 +525,18 @@ function fullProcessClickedObject(object){
 			output = get_as_index(object,result[1]);
 		}
 	}else{
-		error="Element can't be picked without indexing (See options)";
+		if(object.tagName=="A" && allowLabelClick){
+			if(link_text_is_unique(object.innerHTML)){
+				sendEvent({action: "HTMLClick", target: object.innerHTML});
+				return true;
+			}else{
+				error="Element can't be picked without labeling (See options)";
+			}
+		}else{
+			error="Element can't be picked without indexing(See options)";
+		}
+		
+		setHeaderMsg("error",error);
 	}
 	if(output!=""){
 		sendEvent({action: "ElementClick", target: output});
