@@ -121,6 +121,26 @@ function getLastMsg(){
 	}
 }
 
+function fetchTemplate(name){
+  return document.getElementById("template_"+name).innerHTML;
+}
+
+function getTemplates(){
+	return {
+		"main": fetchTemplate("main"), 
+        "expander": fetchTemplate("expander"),
+        "expander_attr": fetchTemplate("expander_attr"),
+        "expander_attr_comp": fetchTemplate("expander_attr_comp")
+	}
+}
+
+function getSettingsHash(){
+	return {
+		swag: "settings",
+		templates: getTemplates()
+	}
+}
+
 function addEvent(processedEvent){
 	if(processedEvent){
 		if(processedEvent!=""){
@@ -142,6 +162,10 @@ function addRedoEvent(){
 
 
 chrome.extension.onMessage.addListener(function(msg,sender, sendResponse) {
+	if(msg.action == "Winston"){
+		if(msg.target == "load_templates") sendMessage(getSettingsHash());
+		return;
+	}
 	if(msg.action=="Wayne"){
 		if(msg.target=="setevents"){
 			actions = msg.values;
