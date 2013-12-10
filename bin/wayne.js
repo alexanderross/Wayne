@@ -9,6 +9,11 @@ var outputVerbage="CAPY";
 localStorage["wayne_version_number"]="0.989";
 loadDefaults();
 
+
+function eventWrapper(trigger, wrapper_id){
+
+}
+
 function loadDefaults(){
 
 	if (!localStorage["wayne_engine"]){

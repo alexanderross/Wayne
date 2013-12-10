@@ -12,6 +12,7 @@
 	-webkit-border-radius: 6px;
 	-moz-border-radius: 6px;
 	border-radius: 6px;
+	height: 50px;
 }
 
 #winston_interface{
@@ -28,6 +29,14 @@
 	border:1px solid #FFF;
 }
 
+#winston_keys{
+	opacity: .4;
+}
+
+.winston_base_option_active{
+	opacity: 1.0 !important;
+}
+
 #winston_messages{
 	position:relative;
 	left:0px;
@@ -39,8 +48,16 @@
 	font-weight:bold;
 }
 
+.winston_select_count_valid{
+	color: #0f0;
+}
+
 .winston_dispitem{
 	
+}
+
+.winston_expander{
+	background-color: #DDD;
 }
 
 .winston_expander_criteria{
@@ -70,12 +87,15 @@ span.winston_attr_delim{
 	padding: 2px;
 }
 
+.winston_active_attr{
+	border:1px solid #090;
+}
+
 .winston_attr_disp{
 	display:inline-block;
 	-webkit-border-radius: 6px;
 	-moz-border-radius: 6px;
 	border-radius: 6px;
-	border: 1px solid #555;
 	background-color: #ccc;
 	font-weight: bold;
 	text-align:center;
@@ -88,8 +108,12 @@ span.winston_attr_delim{
 	background-color: #6ECFF6;
 }
 
-.winston_color_type_class{
+.winston_criteria_sel[data-type='_label'] .winston_attr_disp{
 	background-color: #FDC68A;
+}
+
+.winston_criteria_sel[data-type='class'] .winston_attr_disp{
+	background-color: #BADA55;
 }
 
 .winston_color_type_index{
@@ -99,6 +123,10 @@ span.winston_attr_delim{
 .winston_itest_engine_atr{
 	font-size:18px;
 	margin:8px;
+}
+
+.winston_selected_dom_element{
+	background-color: rgba(0,244,0,.4) !important;
 }
 
 

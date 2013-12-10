@@ -6,6 +6,7 @@ EVENTUALLY
 - Presentations change depending on output subtype (XPATH, CSS, etc.)
 */
 var WayneSocket = {
+    current_event_id: 0,
     sendEvent: function(evt){
         chrome.extension.sendMessage(evt);
     },
@@ -23,6 +24,7 @@ var winston_renders = undefined;
 //Gets instances from a hopefully initialized collection of template strings
 var DRRenderer = {
    
+    // What we present these to the user as. <> is replaced by a var. A presentation with one of these, expects one input.
     presentations:{
         "class": ".<>",
         "id": "#<>",
@@ -30,6 +32,7 @@ var DRRenderer = {
         "_eq": ":eq(<>)",
         "_default": "[<>='<>']"
     },
+    // Same as above, though these are
     engine_executions:{ //What is actually used to get counts.
         "class": ".<>",
         "id": "#<>",
@@ -37,18 +40,40 @@ var DRRenderer = {
         "_eq": ":eq(<>)",
         "_default": "[<>='<>']"
     },
-    windom_execution: " ", // spaces between heirarchal selects
+    windom_execution: " ", // spaces between heirarchal selects, can switch to '/' for xpath. But why?
+    //candidate = JQ object
+    //Check to see if we can click this by label
+    getValidLabel: function(candidate){
+        candidate = candidate[0];
+        var chop_at = 16;
+        //Actually exists.
+        var label_txt= ""
+        if(candidate){
+            var label_txt= "";
+            for(var i=0; i< candidate.childNodes.length; i++){
+                if(candidate.childNodes[i].tagName == undefined){
+                    label_txt += candidate.childNodes[i].data
+                }
+            }
+            if(label_txt.length > chop_at){
+                var portion = Math.floor(chop_at/2)-2;
+                label_txt = label_txt.substr(0, portion)+" .. " + label_txt.substr(label_txt.length - portion );
+            }
+            return label_txt
+        }
+        return "";
+    },
    decorateAttrComp: function(template, attr_name){
         //Add the presentation
         var presenter = DRRenderer.presentations[attr_name];
         if(presenter == undefined){
-            presenter = DRRenderer.presentations["default"].split("<>"); 
+            presenter = DRRenderer.presentations["_default"].split("<>"); 
             if(presenter.length == 3){ //Pretty much the case most of the time unless default is redefined
                 presenter[0] = presenter[0]+attr_name+presenter[1];
                 presenter[1] = presenter[2];
             }
         }else{
-            presenter = DRRenderer.presentations["default"].split("<>"); 
+            presenter = presenter.split("<>"); 
         }
         if(presenter[0] != "") template.find(".wad_head").html(presenter[0]);
         if(presenter[1] != "") template.find(".wad_tail").html(presenter[1]);
@@ -78,7 +103,7 @@ var DRRenderer = {
    //Replace wildcards with actual stuff.
    prepTemplateWithWildcards: function(template_str, wildcards){
         for(var i=0;i<wildcards.length;i++){
-            template_str = template_str.replace('/@'+wildcards[i][0]+'@/g',wildcards[i][1]);
+            template_str = template_str.replace(new RegExp('@'+wildcards[i][0]+'@',"g"),wildcards[i][1]);
         }
         return template_str;
    }
@@ -92,12 +117,14 @@ function WinDomAttrWrapper(parent_wrapper, attr, value_in){
     this.parent_wrapper = undefined;
 
     this.toggle_active = function(target, index){
-        this.attr_states[index] = !this.attr_states[index];
-        if(this.attr_states[index]){
-            $(target).addClass("winston_active_attr");
+        this.attr_states[index][0] = !this.attr_states[index][0];
+        target = this.display_block.find("winston_attr_comp_wrap:eq("+index+")");
+        if(this.attr_states[index][0]){
+            target.addClass("winston_active_attr");
         }else{
-            $(target).removeClass("winston_active_attr");
+            target.removeClass("winston_active_attr");
         }
+        this.parent_wrapper.refresh();
 
         //Refresh count
     };
@@ -108,16 +135,16 @@ function WinDomAttrWrapper(parent_wrapper, attr, value_in){
         }
         //Go through all of the states, render each of them, add class if active.
 
-        for(var k=0; k < this.attr_states; k++){
+        for(var k=0; k < this.attr_states.length; k++){
             var new_component = DRRenderer.getNewExpanderAttrComp(this.attr_states[k][1]);
             this.display_block.append(new_component);
             //add the before/after swag
-            DRRenderer.decorateAttrComp(new_component);
+            DRRenderer.decorateAttrComp(new_component,this.attr_name);
             var myself = this;
 
             //add a toggle listener.. may need to revisit this for efficiency
             new_component.click(function(evt){
-                myself.toggle_active(new_component, k);
+                myself.toggle_active(new_component, k-1);
             });
 
             if(this.attr_states[k][0]) new_component.addClass("winston_active_attr");
@@ -138,9 +165,9 @@ function WinDomAttrWrapper(parent_wrapper, attr, value_in){
         }else{
             class_builder = class_builder.split("<>");
         }
-        for(var i = 0; i < this.attr_states; i++){
-            if(this.attr_states[0]){
-                output+= class_builder[0]+this.attr_states[1]+class_builder[1];
+        for(var i = 0; i < this.attr_states.length; i++){
+            if(this.attr_states[i][0]){
+                output+= class_builder[0]+this.attr_states[i][1]+class_builder[1];
             }
         }
         return output;
@@ -149,6 +176,7 @@ function WinDomAttrWrapper(parent_wrapper, attr, value_in){
     //Like for class, or id, or value... maybe label.. just store attr and the values as a structure.
     this.instantiateWrapper = function(parent_wrapper, attr, value){
         this.parent_wrapper = parent_wrapper;
+        this.attr_name = attr;
        if(attr=="class"){
             var values = value.split(" ");
             for(i=0;i<values.length;i++){
@@ -158,8 +186,6 @@ function WinDomAttrWrapper(parent_wrapper, attr, value_in){
        }else{
             this.attr_states.push([false, value])
        }
-
-       this.renderWrapper();
     };
     //Initializer.. purdy much..
     this.instantiateWrapper(parent_wrapper, attr, value_in);
@@ -174,11 +200,12 @@ function WinDomWrapper (obj, parent_wrap, child_wrap) {
     this.display_block = undefined;
     this.base = undefined;
     this.current_length = 0;
+    self_obj = this;
 
     //RENDERING
 
     //Render the entire state of the dom wrapper, namely it's attrs
-    this.renderWrapper = function(base_obj){
+    this.renderWrapper = function(){
         if(this.display_block == undefined){
             this.display_block = DRRenderer.getNewDomExpander(this.base);
         }
@@ -188,16 +215,27 @@ function WinDomWrapper (obj, parent_wrap, child_wrap) {
         for(var attr_name in this.attr_tracker){
             focus_dom.append(this.attr_tracker[attr_name].renderWrapper());
         }
+        var myself = this;
+        this.display_block.find(".winston_expander_toggle_parent").click(function(){
+            myself.addParent();
+        });
 
         return this.display_block;
     };
     //render the current evaluation of the extension.
     this.renderCount = function(count){
-        this.display_block.find(".winston_expander_count").html(this.current_length);
+        var ct_disp_block = this.display_block.find(".winston_expander_count")
+        ct_disp_block.html(this.current_length);
+        //If ! selecting, does it resolve singularly? 
+        if(Winston.selecting || this.current_length == 1){
+            ct_disp_block.addClass("winston_select_count_valid");
+        }else{
+            ct_disp_block.removeClass("winston_select_count_valid");
+        }
     };
 
     this.addAttribute = function(attribute, value){
-        this.attr_tracker[attribute] = new WinDomAttrWrapper(attribute, value);
+        this.attr_tracker[attribute] = new WinDomAttrWrapper(this, attribute, value);
     };
 
     //Add the expander and re-render around that
@@ -211,20 +249,25 @@ function WinDomWrapper (obj, parent_wrap, child_wrap) {
         var tmp_attrs = WayneSocket.opts["seek_attrs"];
         for(i=0;i<tmp_attrs.length; i++){
             if(this.base.attr(tmp_attrs[i])!= undefined){
-                this.addAttribute(this.attr_tracker[tmp_attrs[i]] , this.base.attr(tmp_attrs[i]));
+                if(this.base.attr(tmp_attrs[i])!=""){
+                    this.addAttribute(tmp_attrs[i] , this.base.attr(tmp_attrs[i]));
+                }
             }
         }
         // For label selects
-        this.addAttribute("_label",this.base.html());
+        var label_content = DRRenderer.getValidLabel(this.base);
+        if(label_content != ""){
+            this.addAttribute("_label",label_content);
+        }
     };
     //Must be called on lowest node
     this.to_tag = function(){
-        var content = this.base[0].tagName;
-        for(var attr_name in this.attr_tracker){
-            content += this.attr_tracker.to_tag();
+        var content = self_obj.base[0].tagName;
+        for(var attr_name in self_obj.attr_tracker){
+            content += self_obj.attr_tracker[attr_name].to_tag();
         }
-        if(this.active_parent != undefined){
-            content = this.active_parent.to_tag() + DRRenderer.windom_execution;
+        if(self_obj.active_parent != undefined){
+            content = self_obj.active_parent.to_tag() + DRRenderer.windom_execution;
         }
         return content;
     };
@@ -239,20 +282,25 @@ function WinDomWrapper (obj, parent_wrap, child_wrap) {
     //Add and activate the parent
     this.addParent = function(){
         this.active_parent = new WinDomWrapper(this.base.parent(), undefined, this);
+        this.display_block.before(this.active_parent.renderWrapper());
         this.refresh(false);
     };
 
     this.toParent = function(){
         if(this.base.children().length != 0) this.instantiateWrapper(this.base.firstChild()[0]);
+        this.renderWrapper();
     };
     this.toFirstChild = function(){
         if(this.base.children().length != 0) this.instantiateWrapper(this.base.firstChild()[0]);
+        this.renderWrapper();
     };
     this.toRight = function(){
         if(this.base.next().length != 0) this.instantiateWrapper(this.base.next()[0], this.active_parent);
+        this.renderWrapper();
     };
     this.toLeft = function(){
         if(this.base.prev().length != 0) this.instantiateWrapper(this.base.prev()[0], this.active_parent);
+         this.renderWrapper();
     };
     
     this.instantiateWrapper(obj, parent_wrap, child_wrap);
@@ -264,6 +312,7 @@ function WinDomWrapper (obj, parent_wrap, child_wrap) {
 //Scope high this calls
 var Winston = {
     loaded: false,
+    use_dom_keys: false,
     do_kill: false,
     lock_ajax: false,
     page_listeners_loaded: false,
@@ -273,11 +322,15 @@ var Winston = {
     active_expander: undefined,
     event_queue: [],
 
-    destroy: function(){
+    destroyAll: function(){
         $(document).unbind(".wayne");
-        
+        Winston.destroyPageListeners();
+        Winston.destroyWinstonBaseListeners();
+        Winston.destroyDomTraversalKeys();
+        Winston.destroySelectEventListeners();
         $("*").unbind(".wayne");
         $("body").children("#winston_box").fadeOut(500).remove();
+        Winston.loaded= false;
     },
 
     loadAll: function(){
@@ -286,40 +339,82 @@ var Winston = {
         $("body").append(this.display_block);
         this.loadPageListeners();
         this.loadWinstonBaseListeners();
+        Winston.loaded = true;
     },
 
+    loadWrapper: function( wrapper){
+        if(wrapper == undefined) return;
+        if(this.active_expander != undefined){
+            Winston.destroyCurrentExpander();
+        }
+        this.sel_mode = 1;
+        this.active_expander = wrapper;
+        this.active_expander.base.addClass("winston_selected_dom_element");
+        this.display_block.find("#winston_expand_container").append(wrapper.renderWrapper());
+    },
+    //obj is native JS
     loadObject: function(obj){
-        this.active_expander = new WinDomWrapper(obj);
-        this.display_block.find("#winston_expand_container").append(this.active_expander.renderWrapper());
+        if(obj == undefined) return;
+        Winston.loadWrapper(new WinDomWrapper(obj));
     },
 
     destroyCurrentExpander: function(){
-        this.display_block.find("#winston_expand_container").remove(".winston_expander");
+        this.display_block.find(".winston_expander").remove();
+        $(".winston_selected_dom_element").removeClass("winston_selected_dom_element");
         this.active_expander = undefined;
+        this.releaseEvents();
+         this.sel_mode = 0;
+    },
+
+    toggleDomKeys: function(){
+        Winston.use_dom_keys = !Winston.use_dom_keys;
+        var dk_obj = $(document.getElementById("winston_keys"));
+        if(Winston.use_dom_keys){
+            dk_obj.addClass("winston_base_option_active");
+            Winston.loadDomTraversalKeys();
+        }else{
+            dk_obj.removeClass("winston_base_option_active");
+            Winston.destroyDomTraversalKeys();
+        }
+    },
+
+    //EVENT QUEUEING
+    // If it's something like a submit/link click, we want to pause execution of redirection until the user
+    // can work out how they want to resolve the node that triggered the event. We hold this until the expander is confirmed and
+    // release is fired. 
+    // loadObject should queue the event.
+    // destroyCurrentExpander should fire it. 
+    //Release paused event listener chain
+    releaseEvents:function(){
+
+    },
+    //Add the rest of an event chain until the event is resolved.
+    queueEvent:function(evt){
+
     },
 
     //LISTENERS
 
     loadPageListeners: function(){
         $(document).on("blur.wayne",function(){//TextField
-            sendEvent({action: "FieldBlur", target: this.name,value:$(this).val()});
+            WayneSocket.sendEvent({action: "FieldBlur", target: this.name,value:$(this).val()});
         });
 
         $(document).on('change.wayne',function(event){
-            sendEvent({action: "FileUpload", target: this.name,value:$(this).val()});
+            WayneSocket.sendEvent({action: "FileUpload", target: this.name,value:$(this).val()});
         });
 
         $(document).on('change.wayne', function(){
             if($(this).is(':checked')){
-                sendEvent({action: "CheckboxCheck", target: object.name, value: $(object).val()});
+                WayneSocket.sendEvent({action: "CheckboxCheck", target: object.name, value: $(object).val()});
             } else {
-                sendEvent({action: "CheckboxUnCheck", target: object.name, value: $(object).val()});
+                WayneSocket.sendEvent({action: "CheckboxUnCheck", target: object.name, value: $(object).val()});
             }
         });
 
         $(document).on('change.wayne', function(){
             var sval = $(object).find("option:selected").html();
-            sendEvent({action: "SelectChange", target: this.name, value: sval});
+            WayneSocket.sendEvent({action: "SelectChange", target: this.name, value: sval});
         });
 
         $(document).on('submit.wayne', function (event){
@@ -350,7 +445,7 @@ var Winston = {
                 if(!selecting){
                         var object = this;
                         if(allowLabelClick){
-                                sendEvent({action: "SubmitClick", target: object.name, value: $(object).val()});
+                                WayneSocket.sendEvent({action: "SubmitClick", target: object.name, value: $(object).val()});
                                 return true;
                         }else{
                                 return fullProcessClickedObject(object);
@@ -368,30 +463,7 @@ var Winston = {
                 Winston.loadObject(event.target);
             }
         });
-        /*
-        $(document).on("keydown.wayne",function(event){
-                if(selecting && selected_object!=null){
-                    switch(event.keyCode){
-                            case 37: //left arrow
-                                    traverseSelected(selected_object,-1);
-                                    break;
-                            case 38: // up arrow
-                                    traverseSelected(selected_object,2);
-                                    break;
-                            case 39: // Right arrow
-                                    traverseSelected(selected_object,1);
-                                    break;
-                            case 40: // Down arrow
-                                    traverseSelected(selected_object,-2);
-                                    break;
-                            case 13: //Enter
-                                    processSelect(selected_object,false);
-                                    break;
-                            default:
-                                    break;
-                    }        
-                }
-        });*/
+
         Winston.page_listeners_loaded = true;
     },
     destroyPageListeners: function(){
@@ -400,22 +472,23 @@ var Winston = {
     },
     loadWinstonBaseListeners: function(){
         Winston.lock_ajax=true;
-        $("#wayne_undo").live('click.waynecr',function(){
-                sendEvent({action:"Wayne",target:"undo"});
+        var common_container = $(document.getElementById("winston_box"));
+        common_container.on('click.waynecr', "#winston_base_back",function(){
+                WayneSocket.sendEvent({action:"Wayne",target:"undo"});
                 return false;
         });
 
-        $("#wayne_redo").live('click.waynecr',function(){
-                sendEvent({action:"Wayne",target:"redo"});
+        common_container.on('click.waynecr',"#winston_base_forward",function(){
+                WayneSocket.sendEvent({action:"Wayne",target:"redo"});
                 return false;
         });
 
-        $("#wayne_kill").live('click.waynecr',function(){
-                sendEvent({action: "Wayne", target: "kill"});
+        common_container.on('click.waynecr',"#winston_base_kill" ,function(){
+                WayneSocket.sendEvent({action: "Wayne", target: "kill"});
                 return false;
         });
 
-        $("#wayne_pause").live('click.waynecr',function(){
+        common_container.on('click.waynecr', "#wayne_base_pause",function(){
                 paused = !paused;
                 if(paused){
                         destroyListeners(false);
@@ -429,13 +502,22 @@ var Winston = {
                 return false;
         });
 
-        $("#wayne_select").live('click.waynecr',function(){
+        common_container.on('click.waynecr',"#wayne_select",function(){
                 if(selecting){
                         disableSelectMode();
                         setHeaderMsg("notify","Canceled Element Selection");
                 }
                 return false;
         });
+        common_container.on('click.waynecr',"#winston_keys",function(){
+            Winston.toggleDomKeys();
+        });
+
+        //Clicking the count to confirm the action.
+        common_container.on('click.waynecr',".winston_select_count.winston_select_count_valid", function(){
+            Winston.confirmCurrentState();
+        });
+        console.log("Winston: Base Loaded");
         Winston.base_loaded=true;
         Winston.lock_ajax=false;
     },
@@ -448,7 +530,39 @@ var Winston = {
     },
     destroySelectEventListeners: function(){
         $("*").unbind(".waynesel");
-        Winston.sel_evts_loaded=true;
+        Winston.sel_evts_loaded=false;
+    },
+
+    loadDomTraversalKeys: function(){
+        if(!Winston.use_dom_keys) return;
+        $(document).on("keydown.winstondomkey",function(event){
+            switch(event.keyCode){
+                case 37: //left arrow
+                    Winston.traverseLeft();
+                    break;
+                case 38: // up arrow
+                    Winston.traverseUpwards();
+                    break;
+                case 39: // Right arrow
+                    Winston.traverseRight();
+                    break;
+                case 40: // Down arrow
+                    Winston.traverseDownwards();
+                    break;
+                case 13: //Enter
+                    Winston.confirmCurrentState();
+                    break;
+                default:
+                        break;
+            }        
+            
+        });
+        Winston.dk_evts_loaded=true;
+    },
+
+    destroyDomTraversalKeys: function(){
+        $("*").unbind(".winstondomkey");
+        Winston.dk_evts_loaded=false;
     },
 
     // Actual stuff=========
@@ -457,11 +571,13 @@ var Winston = {
     startSelectSequence: function(){
         if(Winston.selecting) return;
         Winston.selecting = true;
+        Winston.sel_mode = 2;
         Winston.loadSelectEventListeners();
     },
 
     endSelectSequence: function(){
         Winston.selecting = false;
+        Winston.sel_mode = 0;
         Winston.destroySelectEventListeners();
     },
 
@@ -472,19 +588,19 @@ var Winston = {
     }, 
 
     //Add an expander below current, but just to look it..
-    traverseRight: function(){
-        Winston.active_expander.toPrev();
+    traverseLeft: function(){
+        Winston.loadObject(Winston.active_expander.base.prev()[0]);
     },
     traverseRight: function(){
-        Winston.active_expander.toNext();
+        Winston.loadObject(Winston.active_expander.base.next()[0]);
     },
     //Set the upward expander as the clicked object, discard lower expanders.
-    traverseUpwards: function(obj){
-        Winston.active_expander.toParent();
+    traverseUpwards: function(){
+        Winston.loadObject(Winston.active_expander.base.parent()[0]);
     },
     //Set the child displayed by seekChild as the current. Keep parents by default.
     traverseDownwards: function(obj, retain_upper){
-        Winston.active_expander.toFirstChild();
+        Winston.loadObject(Winston.active_expander.base[0].childNodes[0]);
     },
     //Set an attribute of the element to either be active or inactive in the query
     setAttribute: function(obj, attribute, active){
@@ -495,15 +611,17 @@ var Winston = {
         if(Winston.sel_mode == 0){ // Not doing shit
             return;
         }else if(Winston.sel_mode == 1){ // Clicking
-            sendEvent({action: "ElementClick", target: Winston.active_expander.to_tag()});
+            WayneSocket.sendEvent({action: "ElementClick", target: Winston.active_expander.to_tag()});
         }else{ //Selecting
-            sendEvent({action: "AssertCount", target: Winston.active_expander.to_tag(), value: Winston.active_expander.current_length });
+            WayneSocket.sendEvent({action: "AssertCount", target: Winston.active_expander.to_tag(), value: Winston.active_expander.current_length });
         }
+        Winston.destroyCurrentExpander();
     },
 
     //Response handlers
     processMessage: function(type, content){
-
+        var msg_window =  document.getElementById("winston_message_display");
+        if(msg_window != undefined) msg_window.innerHTML = content;
     },
 
     processUpdate: function(msg){
@@ -525,7 +643,7 @@ $(document).bind("ready",function(){
         }
         if (msg.swag == "Stop" || msg.stat=="Stopped"){
             active_engine.processMessage("notify","Stopped!");
-            active_engine.destroy();
+            active_engine.destroyAll();
         }else if (msg.swag == "Start"){
             active_engine.loadAll();
             WayneSocket.sendEvent({action:"Visit",target:window.location.pathname})
