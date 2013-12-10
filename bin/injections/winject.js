@@ -1,14 +1,58 @@
 /*BEFORE RUN 
 - Instantiate DRRenderer's templates to something
 
+
+
 EVENTUALLY
 - Dynamic socket opts loading
 - Presentations change depending on output subtype (XPATH, CSS, etc.)
 */
+
+var rush_those_listeners = true;
+function EventWrapper(object, action_data){
+    this.base = object;
+    this.evt_data = action_data;
+    this.nextEvt = undefined;
+    this.prevEvt = undefined;
+
+    this.toString = function(){
+
+    }
+
+    this.setNext = function(evt_obj){
+        this.nextEvt = evt_obj;
+        ext_obj.prevEvt = this;
+    }
+
+    this.setPrev = function(evt_obj){
+        this.prevEvt = evt_obj;
+        ext_obj.nextEvt = this;
+    }
+
+    this.surrender = function(){
+        if(this.nextEvt!= undefined){
+            this.nextEvt.prevEvt = undefined;
+            return this.nextEvt;
+        }
+    }
+
+    this.addToTail = function(event_obj){
+        if(this.nextEvt!= undefined){
+            this.nextEvt.addToTail(event_obj);
+            return;
+        }
+        this.setNext(event_obj);
+    }
+}
+
 var WayneSocket = {
     current_event_id: 0,
     sendEvent: function(evt){
         chrome.extension.sendMessage(evt);
+    },
+    queueEvent: function(action, target, arg){
+        
+
     },
     loadTemplate: function(template_type){
         
@@ -36,7 +80,7 @@ var DRRenderer = {
     engine_executions:{ //What is actually used to get counts.
         "class": ".<>",
         "id": "#<>",
-        "_label": "<>",
+        "_label": ":contains('<>')",
         "_eq": ":eq(<>)",
         "_default": "[<>='<>']"
     },
@@ -45,7 +89,6 @@ var DRRenderer = {
     //Check to see if we can click this by label
     getValidLabel: function(candidate){
         candidate = candidate[0];
-        var chop_at = 16;
         //Actually exists.
         var label_txt= ""
         if(candidate){
@@ -55,13 +98,17 @@ var DRRenderer = {
                     label_txt += candidate.childNodes[i].data
                 }
             }
-            if(label_txt.length > chop_at){
-                var portion = Math.floor(chop_at/2)-2;
-                label_txt = label_txt.substr(0, portion)+" .. " + label_txt.substr(label_txt.length - portion );
-            }
             return label_txt
         }
         return "";
+    },
+    truncateStr: function(input, limit){
+        var new_str = input;
+        if(input.length > limit){
+            var portion = Math.floor(limit/2)-2;
+            new_str = new_str.substr(0, portion)+" .. " + new_str.substr(new_str.length - portion );
+        }
+        return new_str;
     },
    decorateAttrComp: function(template, attr_name){
         //Add the presentation
@@ -91,7 +138,8 @@ var DRRenderer = {
    getNewExpanderAttrComp: function(attr_comp_val){
     var template = winston_renders["expander_attr_comp"];
 
-    return $(DRRenderer.prepTemplateWithWildcards(template, [["atr_value", attr_comp_val]]));
+
+    return $(DRRenderer.prepTemplateWithWildcards(template, [["atr_value", DRRenderer.truncateStr(attr_comp_val,16)]]));
    },
    getNewExpanderAttr: function(attr){
     var template = winston_renders["expander_attr"];
@@ -118,13 +166,13 @@ function WinDomAttrWrapper(parent_wrapper, attr, value_in){
 
     this.toggle_active = function(target, index){
         this.attr_states[index][0] = !this.attr_states[index][0];
-        target = this.display_block.find("winston_attr_comp_wrap:eq("+index+")");
+        target = this.display_block.find(".winston_attr_comp_wrap:eq("+index+")");
         if(this.attr_states[index][0]){
             target.addClass("winston_active_attr");
         }else{
             target.removeClass("winston_active_attr");
         }
-        this.parent_wrapper.refresh();
+        Winston.refreshActive(true);
 
         //Refresh count
     };
@@ -134,20 +182,21 @@ function WinDomAttrWrapper(parent_wrapper, attr, value_in){
             this.display_block = DRRenderer.getNewExpanderAttr(this.attr_name);
         }
         //Go through all of the states, render each of them, add class if active.
-
+        var myself = this;
         for(var k=0; k < this.attr_states.length; k++){
-            var new_component = DRRenderer.getNewExpanderAttrComp(this.attr_states[k][1]);
-            this.display_block.append(new_component);
-            //add the before/after swag
-            DRRenderer.decorateAttrComp(new_component,this.attr_name);
-            var myself = this;
+            (function(k, myself){
+                var new_component = DRRenderer.getNewExpanderAttrComp(myself.attr_states[k][1]);
+                myself.display_block.append(new_component);
+                //add the before/after swag
+                DRRenderer.decorateAttrComp(new_component,myself.attr_name);
 
-            //add a toggle listener.. may need to revisit this for efficiency
-            new_component.click(function(evt){
-                myself.toggle_active(new_component, k-1);
-            });
+                //add a toggle listener.. may need to revisit this for efficiency
+                new_component.click(function(evt){
+                    myself.toggle_active(new_component, k);
+                });
 
-            if(this.attr_states[k][0]) new_component.addClass("winston_active_attr");
+                if(myself.attr_states[k][0]) new_component.addClass("winston_active_attr");
+            })(k,myself);
         }
 
         return this.display_block;
@@ -179,7 +228,7 @@ function WinDomAttrWrapper(parent_wrapper, attr, value_in){
         this.attr_name = attr;
        if(attr=="class"){
             var values = value.split(" ");
-            for(i=0;i<values.length;i++){
+            for(var i=0;i<values.length;i++){
                 //is used, value
                 this.attr_states.push([false, values[i]])
             }
@@ -200,7 +249,6 @@ function WinDomWrapper (obj, parent_wrap, child_wrap) {
     this.display_block = undefined;
     this.base = undefined;
     this.current_length = 0;
-    self_obj = this;
 
     //RENDERING
 
@@ -219,7 +267,7 @@ function WinDomWrapper (obj, parent_wrap, child_wrap) {
         this.display_block.find(".winston_expander_toggle_parent").click(function(){
             myself.addParent();
         });
-
+        this.refresh();
         return this.display_block;
     };
     //render the current evaluation of the extension.
@@ -247,7 +295,7 @@ function WinDomWrapper (obj, parent_wrap, child_wrap) {
         this.display_block = DRRenderer.getNewDomExpander(this.base);
         //sweep it for attrs that we can use.
         var tmp_attrs = WayneSocket.opts["seek_attrs"];
-        for(i=0;i<tmp_attrs.length; i++){
+        for(var i=0;i<tmp_attrs.length; i++){
             if(this.base.attr(tmp_attrs[i])!= undefined){
                 if(this.base.attr(tmp_attrs[i])!=""){
                     this.addAttribute(tmp_attrs[i] , this.base.attr(tmp_attrs[i]));
@@ -262,19 +310,25 @@ function WinDomWrapper (obj, parent_wrap, child_wrap) {
     };
     //Must be called on lowest node
     this.to_tag = function(){
-        var content = self_obj.base[0].tagName;
-        for(var attr_name in self_obj.attr_tracker){
-            content += self_obj.attr_tracker[attr_name].to_tag();
-        }
+        var self_obj = this;
+        var content = "";
         if(self_obj.active_parent != undefined){
             content = self_obj.active_parent.to_tag() + DRRenderer.windom_execution;
+        }
+        content += self_obj.base[0].tagName;
+
+        for(var attr_name in self_obj.attr_tracker){
+            content += self_obj.attr_tracker[attr_name].to_tag();
         }
         return content;
     };
 
-    this.refresh = function(render_again){
-        this.current_length = $(this.to_tag).length;
+    this.refresh = function(render_upwards){
+        this.current_length = $(this.to_tag()).length;
         this.renderCount();
+        if(render_upwards && this.active_parent!=undefined){
+            this.active_parent.refresh(true);
+        }
     };
 
     //NODEISH OPS----------
@@ -320,7 +374,8 @@ var Winston = {
     display_block: undefined,
     sel_mode: 0, //0-not doing shit, 1-clicking, 2-counting
     active_expander: undefined,
-    event_queue: [],
+    active_deferred_event: undefined,
+    event_active: false,
 
     destroyAll: function(){
         $(document).unbind(".wayne");
@@ -333,10 +388,12 @@ var Winston = {
         Winston.loaded= false;
     },
 
-    loadAll: function(){
+    loadAll: function(just_listeners){
         if(Winston.loaded) return;
-        this.display_block = DRRenderer.getNewBase();
-        $("body").append(this.display_block);
+        if(just_listeners == true || just_listeners == undefined){
+            this.display_block = DRRenderer.getNewBase();
+            $("body").append(this.display_block);
+        }
         this.loadPageListeners();
         this.loadWinstonBaseListeners();
         Winston.loaded = true;
@@ -358,12 +415,16 @@ var Winston = {
         Winston.loadWrapper(new WinDomWrapper(obj));
     },
 
+    loadEvent: function(event_obj){
+        Winston.loadObject(event_obj)
+    },
+
     destroyCurrentExpander: function(){
         this.display_block.find(".winston_expander").remove();
         $(".winston_selected_dom_element").removeClass("winston_selected_dom_element");
         this.active_expander = undefined;
-        this.releaseEvents();
-         this.sel_mode = 0;
+        //this.releaseEvents();
+        this.sel_mode = 0;
     },
 
     toggleDomKeys: function(){
@@ -382,32 +443,48 @@ var Winston = {
     // If it's something like a submit/link click, we want to pause execution of redirection until the user
     // can work out how they want to resolve the node that triggered the event. We hold this until the expander is confirmed and
     // release is fired. 
-    // loadObject should queue the event.
+    // dethroneHead should load the event into the focus wrapper.
     // destroyCurrentExpander should fire it. 
     //Release paused event listener chain
-    releaseEvents:function(){
-
+    activateHead:function(){
+        //We need to signify that the deferred event needs to be notified when this event is confirmed.
+        Winston.loadObject(Winston.active_deferred_event.base);
+        Winston.event_active = true;
+    },
+    deleteHead: function(){
+        Winston.active_deferred_event = Winston.active_deferred_event.surrender();
     },
     //Add the rest of an event chain until the event is resolved.
-    queueEvent:function(evt){
-
+    queueEvent:function(evt_obj){
+        if(Winston.active_deferred_event != undefined){
+            Winston.active_deferred_event.addToTail(evt_obj)
+        }else{
+            Winston.active_deferred_event = evt_obj;
+        }
+        if(Winston.active_expander == undefined){
+            Winston.activateHead();
+        }
     },
 
     //LISTENERS
 
     loadPageListeners: function(){
         $(document).on("blur.wayne",function(){//TextField
+            //WayneSocket.queueEvent(WayneSocket.eventForAction("FieldBlur",this));
             WayneSocket.sendEvent({action: "FieldBlur", target: this.name,value:$(this).val()});
         });
 
-        $(document).on('change.wayne',function(event){
+        $(document).on('change.wayne', 'input[type="file"]',function(event){
+            //WayneSocket.queueEvent(WayneSocket.eventForAction("FileUpload",this));
             WayneSocket.sendEvent({action: "FileUpload", target: this.name,value:$(this).val()});
         });
 
         $(document).on('change.wayne', function(){
             if($(this).is(':checked')){
+                //WayneSocket.queueEvent(WayneSocket.eventForAction("CheckboxCheck",this));
                 WayneSocket.sendEvent({action: "CheckboxCheck", target: object.name, value: $(object).val()});
             } else {
+                //WayneSocket.queueEvent(WayneSocket.eventForAction("CheckboxUnCheck",this));
                 WayneSocket.sendEvent({action: "CheckboxUnCheck", target: object.name, value: $(object).val()});
             }
         });
@@ -415,10 +492,12 @@ var Winston = {
         $(document).on('change.wayne', function(){
             var sval = $(object).find("option:selected").html();
             WayneSocket.sendEvent({action: "SelectChange", target: this.name, value: sval});
+            //WayneSocket.queueEvent(WayneSocket.eventForAction("SelectChange",this, sval));
         });
 
         $(document).on('submit.wayne', function (event){
             //sendEvent({action: "SubmitForm", target: object.id});
+
         });
 
         $(document).on("mouseover.wayne",function(event){
@@ -602,6 +681,9 @@ var Winston = {
     traverseDownwards: function(obj, retain_upper){
         Winston.loadObject(Winston.active_expander.base[0].childNodes[0]);
     },
+    refreshActive: function(){
+        Winston.active_expander.refresh(true);
+    },
     //Set an attribute of the element to either be active or inactive in the query
     setAttribute: function(obj, attribute, active){
 
@@ -632,7 +714,9 @@ var Winston = {
     }
 }
 var active_engine = Winston;
-
+if(rush_those_listeners){
+    Winston.loadPageListeners();
+}
 $(document).bind("ready",function(){
     //This needs to see everything. so it's down here.
     chrome.extension.onMessage.addListener(function(msg, sender, sendResponse) { 

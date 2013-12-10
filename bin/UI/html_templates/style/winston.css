@@ -1,5 +1,4 @@
 #winston_box{
-	height:80px;
 	width: 500px;
 	position:fixed;
 	bottom:0px;
@@ -13,6 +12,10 @@
 	-moz-border-radius: 6px;
 	border-radius: 6px;
 	height: 50px;
+}
+
+.winston_attr_comp_wrap{
+	display:inline-block;
 }
 
 #winston_interface{
@@ -41,11 +44,26 @@
 	position:relative;
 	left:0px;
 	width: 60%;
+	height: 30px;
 	display: inline-block;
 	overflow:hidden;
 }
-.winston_count_container{
-	font-weight:bold;
+.winston_expander_count{
+    font-size: 30px;
+    font-weight: bold;
+    right: 500px;
+    z-index: -5;
+    background-color: rgba(100,100,100,.5);
+    /* width: 25px; */
+    height: 30px;
+    line-height: 1;
+    padding-left: 3px;
+    position: absolute;
+    -webkit-border-radius: 3px;
+	-moz-border-radius: 3px;
+	border-radius: 3px;
+    /* display: inline-block; */
+
 }
 
 .winston_select_count_valid{
@@ -88,7 +106,7 @@ span.winston_attr_delim{
 }
 
 .winston_active_attr{
-	border:1px solid #090;
+	border:2px solid #3f3;
 }
 
 .winston_attr_disp{
@@ -101,7 +119,7 @@ span.winston_attr_delim{
 	text-align:center;
 	padding: 0px 5px;
 	color:#222;
-	margin: 0px -4px;
+
 }
 
 .winston_tag_disp{
